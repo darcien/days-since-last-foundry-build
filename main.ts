@@ -59,6 +59,12 @@ function extractFoundryConfig(html: string): FoundryConfig | undefined {
   return undefined;
 }
 
+function extractManifestHash(html: string): string | undefined {
+  // Match: <link rel="modulepreload" href="/assets/manifest-{hash}.js"
+  const match = html.match(/\/assets\/manifest-([a-f0-9]+)\.js/i);
+  return match?.[1];
+}
+
 function addCheckToData(data: Data, check: Check): void {
   data.checks.unshift(check);
   if (data.checks.length > MAX_CHECKS) {
@@ -125,10 +131,14 @@ async function main() {
     process.exit(1);
   }
 
-  if (!config.environment?.buildNumber) {
+  const manifestHash = extractManifestHash(rawHtml);
+
+  if (!config.environment?.buildNumber || !manifestHash) {
     const check = createCheck("missing_build_info", {
       httpStatus: res.status,
-      errorMessage: "fonfig found but no buildNumber present",
+      errorMessage: !config.environment?.buildNumber
+        ? "config found but no buildNumber present"
+        : "manifest hash not found in HTML",
     });
     addCheckToData(data, check);
     await writeData(DATA_FILE_PATH, data);
@@ -136,27 +146,30 @@ async function main() {
     process.exit(1);
   }
 
+  const buildNumber = config.environment.buildNumber;
+
+  console.log(`buildNumber: ${buildNumber}`);
+  console.log(`manifestHash: ${manifestHash}`);
+
   const now = new Date().toISOString();
-  const { buildNumber, ...foundryEnv } = config.environment;
 
   const existingBuildIndex = data.builds.findIndex(
-    (build) => build.foundryEnv.buildNumber === buildNumber,
+    (build) =>
+      build.buildNumber === buildNumber && build.manifestHash === manifestHash,
   );
 
   const isNewBuild = existingBuildIndex === -1;
 
   if (!isNewBuild) {
-    console.log(`build ${buildNumber} already exists`);
+    console.log(`build ${buildNumber} (${manifestHash}) already exists`);
     data.builds[existingBuildIndex].lastSeenAt = now;
   } else {
-    console.log(`found new build: ${buildNumber}`);
+    console.log(`found new build: ${buildNumber} (${manifestHash})`);
     const newBuild: FoundryBuild = {
       firstSeenAt: now,
       lastSeenAt: now,
-      foundryEnv: {
-        ...foundryEnv,
-        buildNumber,
-      },
+      buildNumber,
+      manifestHash,
       rawConfig: config,
     };
     data.builds.unshift(newBuild);
@@ -165,6 +178,7 @@ async function main() {
   const check = createCheck("ok", {
     httpStatus: res.status,
     buildNumber,
+    manifestHash,
     isNewBuild,
   });
   addCheckToData(data, check);

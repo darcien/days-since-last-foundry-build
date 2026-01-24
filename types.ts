@@ -1,17 +1,16 @@
-export type FoundryEnv = Partial<{
-  name: string;
-  region: string;
-  buildNumber: string;
-}>;
-
 export type FoundryConfig = Partial<{
-  environment: FoundryEnv;
+  environment: Partial<{
+    name: string;
+    region: string;
+    buildNumber: string;
+  }>;
 }>;
 
 export type FoundryBuild = {
   firstSeenAt: string;
   lastSeenAt: string;
-  foundryEnv: FoundryEnv;
+  buildNumber: string;
+  manifestHash: string;
   rawConfig: FoundryConfig;
 };
 
@@ -30,6 +29,7 @@ export type Check = {
   httpStatus?: number;
   errorMessage?: string;
   buildNumber?: string;
+  manifestHash?: string;
   isNewBuild?: boolean;
 };
 
