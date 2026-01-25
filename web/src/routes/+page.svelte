@@ -300,7 +300,7 @@
 				class="w-2 h-2 rounded-full animate-pulse"
 				style="background-color: rgb(var(--vfd)); box-shadow: 0 0 8px rgba(var(--vfd), 0.8);"
 			></span>
-			<span style="color: rgba(var(--vfd), 0.5);">Monitoring Active</span>
+			<span style="color: rgba(var(--vfd), 0.5);">Monitoring (Hopefully) Active</span>
 		</div>
 	</div>
 </div>
