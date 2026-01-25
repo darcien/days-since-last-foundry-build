@@ -9,6 +9,7 @@
 	const changeType = $derived(data.changeType);
 	const checks = $derived(data.checks);
 	const lastUpdatedAt = $derived(data.lastUpdatedAt);
+	const region = $derived(data.region);
 
 	function formatDateTime(iso: string): string {
 		const d = new Date(iso);
@@ -33,10 +34,44 @@
 		});
 	}
 
-	function shortBuild(build: string): string {
-		// "AiFoundry-2026-Jan-13-2026-01-23.4" → "Jan-23.4"
-		const match = build.match(/(\w+-\d+\.\d+)$/);
-		return match?.[1] ?? build;
+	function formatRegion(region: string): string {
+		return region.toUpperCase();
+	}
+
+	function formatBuildNumber(build: string): string {
+		return build.replace(/^AiFoundry-/, '');
+	}
+
+	// Garbled log aesthetic helpers
+	const GARBLE_CHARS = '░▒▓█▌▐╌╍┄┅┈┉╎╏│┃├┤┼╳╱╲◢◣◤◥▖▗▘▙▚▛▜▝▞▟';
+
+	function seededRandom(seed: number): number {
+		const x = Math.sin(seed) * 10000;
+		return x - Math.floor(x);
+	}
+
+	function randomGarble(length: number, seed: number): string {
+		let result = '';
+		for (let i = 0; i < length; i++) {
+			const idx = (seededRandom(seed + i) * GARBLE_CHARS.length) | 0;
+			result += GARBLE_CHARS[idx];
+		}
+		return result;
+	}
+
+	function garbleFieldParts(value: string | undefined, width: number, seed: number): { left: string; value: string; right: string } {
+		if (!value) return { left: randomGarble(width, seed), value: '', right: '' };
+		if (value.length >= width) return { left: '', value: value.slice(0, width), right: '' };
+
+		const padding = width - value.length;
+		const leftPad = (seededRandom(seed) * (padding + 1)) | 0;
+		const rightPad = padding - leftPad;
+
+		return {
+			left: randomGarble(leftPad, seed),
+			value,
+			right: randomGarble(rightPad, seed + 100)
+		};
 	}
 </script>
 
@@ -61,6 +96,7 @@
 			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.05);"
 		>
 			<span style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.6);">[ SYSTEM MONITOR ]</span>
+			<span style="color: rgba(var(--vfd), 0.7); text-shadow: 0 0 6px rgba(var(--vfd), 0.4);">◈ {formatRegion(region)}</span>
 			<span style="color: rgba(var(--vfd), 0.5);">AZURE AI FOUNDRY BUILD TRACKER v0.1</span>
 		</div>
 
@@ -119,7 +155,7 @@
 				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 			>
 				<p class="text-[10px] uppercase tracking-widest mb-1" style="color: rgba(var(--vfd), 0.4);">Latest Build</p>
-				<p class="text-sm font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{latestBuild.buildNumber}</p>
+				<p class="text-sm font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{formatBuildNumber(latestBuild.buildNumber)}</p>
 			</div>
 
 			<!-- Manifest hash -->
@@ -168,29 +204,29 @@
 				<span style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.6);">▌</span>
 				<span class="text-xs uppercase tracking-wider" style="color: rgba(var(--vfd), 0.6);">System Log</span>
 			</div>
-			<div class="p-4 text-xs max-h-48 overflow-y-auto">
+			<div class="p-4 text-xs">
 				{#if checks.length === 0}
 					<div style="color: rgba(var(--vfd), 0.4);">No check history available yet.</div>
 				{:else}
-					{#each checks as check}
-						<div class="flex gap-3 py-0.5">
+					{#each checks as check, i}
+						{@const seed = new Date(check.checkedAt).getTime()}
+						{@const prevCheck = checks[i + 1]}
+						{@const buildChanged = prevCheck && check.buildNumber !== prevCheck.buildNumber}
+						{@const hashChanged = prevCheck && check.manifestHash !== prevCheck.manifestHash}
+						{@const statusColor = check.status === 'ok' ? 'rgb(var(--vfd))' : 'rgb(220, 38, 38)'}
+						{@const buildParts = garbleFieldParts(check.buildNumber ? formatBuildNumber(check.buildNumber) : undefined, 48, seed)}
+						{@const hashParts = garbleFieldParts(check.manifestHash, 24, seed + 50)}
+						<div class="py-0.5 whitespace-nowrap">
 							<span style="color: rgba(var(--vfd), 0.4);">[{formatLogTime(check.checkedAt)}]</span>
-							<span
-								style="color: {check.status === 'ok' ? 'rgb(var(--vfd))' : 'rgb(220, 38, 38)'}; text-shadow: {check.status === 'ok' ? '0 0 6px rgba(var(--vfd), 0.5)' : '0 0 6px rgba(220, 38, 38, 0.5)'};"
-							>
-								{check.status.toUpperCase().padEnd(3)}
-							</span>
-							{#if check.buildNumber}
-								<span style="color: rgba(var(--vfd), 0.7);">build={shortBuild(check.buildNumber)}</span>
-							{/if}
-							{#if check.manifestHash}
-								<span style="color: rgba(var(--vfd), 0.5);">hash={check.manifestHash}</span>
-							{/if}
-							{#if check.isNewBuild}
-								<span style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.8);">★ NEW</span>
-							{/if}
+							<span style="color: {statusColor}; text-shadow: 0 0 6px {check.status === 'ok' ? 'rgba(var(--vfd), 0.5)' : 'rgba(220, 38, 38, 0.5)'};">{check.status.toUpperCase().padStart(3)}</span>
+							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+							<span style="color: rgba(var(--vfd), 0.25);">{buildParts.left}</span><span style="color: {buildChanged ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.7)'}; text-shadow: {buildChanged ? '0 0 8px rgba(var(--vfd), 0.6)' : 'none'};">{buildParts.value}</span><span style="color: rgba(var(--vfd), 0.25);">{buildParts.right}</span>
+							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+							<span style="color: rgba(var(--vfd), 0.25);">{hashParts.left}</span><span style="color: {hashChanged ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.7)'}; text-shadow: {hashChanged ? '0 0 8px rgba(var(--vfd), 0.6)' : 'none'};">{hashParts.value}</span><span style="color: rgba(var(--vfd), 0.25);">{hashParts.right}</span>
+							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+							<span style="color: {check.isNewBuild ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.2)'}; text-shadow: {check.isNewBuild ? '0 0 8px rgba(var(--vfd), 0.8)' : 'none'};">{check.isNewBuild ? '★NEW' : '░░░░'}</span>
 							{#if check.errorMessage}
-								<span style="color: rgba(220, 38, 38, 0.7);">{check.errorMessage}</span>
+								<span style="color: rgba(220, 38, 38, 0.7);"> {check.errorMessage}</span>
 							{/if}
 						</div>
 					{/each}
