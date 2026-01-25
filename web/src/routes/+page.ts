@@ -76,12 +76,24 @@ export const load: PageLoad = () => {
 	// Get checks array (may not exist in older data)
 	const checks: Check[] = data.checks ?? [];
 
+	// Create buildNumber → region lookup from builds
+	const regionByBuild = new Map<string, string>();
+	for (const build of data.builds) {
+		regionByBuild.set(build.buildNumber, build.rawConfig.environment?.region ?? 'unknown');
+	}
+
+	// Enrich checks with region
+	const checksWithRegion = checks.map((check) => ({
+		...check,
+		region: check.buildNumber ? (regionByBuild.get(check.buildNumber) ?? 'unknown') : 'unknown'
+	}));
+
 	return {
 		days,
 		latestBuild,
 		previousBuild,
 		changeType,
-		checks,
+		checks: checksWithRegion,
 		lastUpdatedAt: data.lastUpdatedAt,
 		region: latestBuild.rawConfig.environment?.region ?? 'unknown'
 	};

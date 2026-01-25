@@ -31,8 +31,8 @@
 
 		// Calculate available width (container width minus padding)
 		const containerWidth = logContainer.clientWidth - 32;
-		// Fixed chars: [time] (18) + status (3) + separators (3*3=9) + NEW (4) = 34
-		const fixedChars = 34;
+		// Fixed chars: [time] (18) + status (3) + region (4) + separators (4*3=12) + NEW (4) = 41
+		const fixedChars = 41;
 		const availableChars = Math.floor(containerWidth / charWidth) - fixedChars;
 
 		// Distribute: ~66% to build, ~34% to hash
@@ -77,6 +77,22 @@
 
 	function formatRegion(region: string): string {
 		return region.toUpperCase();
+	}
+
+	function shortRegion(region: string): string {
+		const abbrevs: Record<string, string> = {
+			eastus: 'eus',
+			eastus2: 'eus2',
+			westus: 'wus',
+			westus2: 'wus2',
+			westcentralus: 'wcus',
+			centralus: 'cus',
+			northeurope: 'neu',
+			westeurope: 'weu',
+			southeastasia: 'sea',
+			japaneast: 'jpe'
+		};
+		return abbrevs[region.toLowerCase()] ?? region.slice(0, 4);
 	}
 
 	function formatBuildNumber(build: string): string {
@@ -254,12 +270,15 @@
 						{@const prevCheck = checks[i + 1]}
 						{@const buildChanged = prevCheck && check.buildNumber !== prevCheck.buildNumber}
 						{@const hashChanged = prevCheck && check.manifestHash !== prevCheck.manifestHash}
+						{@const regionChanged = prevCheck && check.region !== prevCheck.region}
 						{@const statusColor = check.status === 'ok' ? 'rgb(var(--vfd))' : 'rgb(220, 38, 38)'}
 						{@const buildParts = garbleFieldParts(check.buildNumber ? formatBuildNumber(check.buildNumber) : undefined, buildWidth, seed)}
 						{@const hashParts = garbleFieldParts(check.manifestHash, hashWidth, seed + 50)}
 						<div class="py-0.5 whitespace-nowrap">
 							<span style="color: rgba(var(--vfd), 0.4);">[{formatLogTime(check.checkedAt)}]</span>
 							<span style="color: {statusColor}; text-shadow: 0 0 6px {check.status === 'ok' ? 'rgba(var(--vfd), 0.5)' : 'rgba(220, 38, 38, 0.5)'};">{check.status.toUpperCase().padStart(3)}</span>
+							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+							<span style="color: {regionChanged ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.6)'}; text-shadow: {regionChanged ? '0 0 8px rgba(var(--vfd), 0.6)' : 'none'};">{shortRegion(check.region)}</span>
 							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
 							<span style="color: rgba(var(--vfd), 0.25);">{buildParts.left}</span><span style="color: {buildChanged ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.7)'}; text-shadow: {buildChanged ? '0 0 8px rgba(var(--vfd), 0.6)' : 'none'};">{buildParts.value}</span><span style="color: rgba(var(--vfd), 0.25);">{buildParts.right}</span>
 							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
