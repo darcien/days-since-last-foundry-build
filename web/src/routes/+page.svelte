@@ -196,7 +196,7 @@
 				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 			>
 				<p class="text-[10px] uppercase tracking-widest mb-1" style="color: rgba(var(--vfd), 0.4);">Latest Build</p>
-				<p class="text-sm font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{formatBuildNumber(latestBuild.buildNumber)}</p>
+				<p class="text-lg font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{formatBuildNumber(latestBuild.buildNumber)}</p>
 			</div>
 
 			<!-- Manifest hash -->
@@ -205,7 +205,7 @@
 				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 			>
 				<p class="text-[10px] uppercase tracking-widest mb-1" style="color: rgba(var(--vfd), 0.4);">Manifest Hash</p>
-				<p class="text-lg font-bold tracking-widest" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{latestBuild.manifestHash}</p>
+				<p class="text-lg font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{latestBuild.manifestHash}</p>
 			</div>
 
 			<!-- Last check -->
@@ -214,7 +214,7 @@
 				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 			>
 				<p class="text-[10px] uppercase tracking-widest mb-1" style="color: rgba(var(--vfd), 0.4);">Last Check</p>
-				<p class="text-sm font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{formatDateTime(lastUpdatedAt)}</p>
+				<p class="text-lg font-bold" style="color: rgb(var(--vfd)); text-shadow: 0 0 8px rgba(var(--vfd), 0.5);">{formatDateTime(lastUpdatedAt)}</p>
 			</div>
 		</div>
 
