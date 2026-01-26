@@ -16,6 +16,11 @@
 	let buildWidth = $state(48);
 	let hashWidth = $state(24);
 
+	// Glitch animation state
+	let glitchActive = $state(false);
+	let seedModifier = $state(0);
+	let prefersReducedMotion = $state(false);
+
 	function calculateWidths() {
 		if (!logContainer) return;
 
@@ -62,13 +67,91 @@
 
 		setup();
 
-		// Recalculate on resize
+		// Recalculate on resize and increment seed for new garble pattern
 		const resizeObserver = new ResizeObserver(() => {
-			requestAnimationFrame(() => calculateWidths());
+			requestAnimationFrame(() => {
+				calculateWidths();
+				seedModifier++;
+			});
 		});
 		resizeObserver.observe(logContainer);
 
 		return () => resizeObserver.disconnect();
+	});
+
+	// Glitch animation loop - reshuffles garble during 85-90% of cycle
+	$effect(() => {
+		// Check for reduced motion preference
+		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		prefersReducedMotion = motionQuery.matches;
+
+		const handleMotionChange = (e: MediaQueryListEvent) => {
+			prefersReducedMotion = e.matches;
+		};
+		motionQuery.addEventListener('change', handleMotionChange);
+
+		// Don't run animation if reduced motion is preferred
+		if (prefersReducedMotion) {
+			return () => motionQuery.removeEventListener('change', handleMotionChange);
+		}
+
+		let animationFrame: number;
+		let lastModifierUpdate = 0;
+		let startTime = 0;
+		const CYCLE_DURATION = 12000; // 12 seconds
+		const GLITCH_START = 0.85; // 85% of cycle
+		const GLITCH_END = 0.90; // 90% of cycle
+		const MODIFIER_INTERVAL = 80; // Update every ~80ms during glitch
+
+		const animate = (timestamp: number) => {
+			// Initialize start time on first frame
+			if (startTime === 0) {
+				startTime = timestamp;
+			}
+
+			// Calculate elapsed time since animation started
+			const elapsed = timestamp - startTime;
+			// Calculate position in cycle (0-1)
+			const cycleProgress = (elapsed % CYCLE_DURATION) / CYCLE_DURATION;
+
+			// Check if we're in the glitch window (85-90%)
+			const wasGlitchActive = glitchActive;
+			glitchActive = cycleProgress >= GLITCH_START && cycleProgress <= GLITCH_END;
+
+			// Update modifier during glitch burst
+			if (glitchActive) {
+				if (timestamp - lastModifierUpdate >= MODIFIER_INTERVAL) {
+					seedModifier++;
+					lastModifierUpdate = timestamp;
+				}
+			}
+			// Note: seedModifier persists after glitch ends, creating a new static state
+
+			animationFrame = requestAnimationFrame(animate);
+		};
+
+		// Handle page visibility to pause animation when hidden
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				if (animationFrame) {
+					cancelAnimationFrame(animationFrame);
+				}
+			} else {
+				animationFrame = requestAnimationFrame(animate);
+			}
+		};
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		// Start animation
+		animationFrame = requestAnimationFrame(animate);
+
+		return () => {
+			if (animationFrame) {
+				cancelAnimationFrame(animationFrame);
+			}
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			motionQuery.removeEventListener('change', handleMotionChange);
+		};
 	});
 
 	function formatDateTime(iso: string): string {
@@ -135,18 +218,19 @@
 		return result;
 	}
 
-	function garbleFieldParts(value: string | undefined, width: number, seed: number): { left: string; value: string; right: string } {
-		if (!value) return { left: randomGarble(width, seed), value: '', right: '' };
+	function garbleFieldParts(value: string | undefined, width: number, seed: number, modifier: number = 0): { left: string; value: string; right: string } {
+		const effectiveSeed = seed + modifier;
+		if (!value) return { left: randomGarble(width, effectiveSeed), value: '', right: '' };
 		if (value.length >= width) return { left: '', value: value.slice(0, width), right: '' };
 
 		const padding = width - value.length;
-		const leftPad = (seededRandom(seed) * (padding + 1)) | 0;
+		const leftPad = (seededRandom(effectiveSeed) * (padding + 1)) | 0;
 		const rightPad = padding - leftPad;
 
 		return {
-			left: randomGarble(leftPad, seed),
+			left: randomGarble(leftPad, effectiveSeed),
 			value,
-			right: randomGarble(rightPad, seed + 100)
+			right: randomGarble(rightPad, effectiveSeed + 100)
 		};
 	}
 </script>
@@ -291,8 +375,8 @@
 						{@const hashChanged = prevCheck && check.manifestHash !== prevCheck.manifestHash}
 						{@const regionChanged = prevCheck && check.region !== prevCheck.region}
 						{@const statusColor = check.status === 'ok' ? 'rgb(var(--vfd))' : 'rgb(220, 38, 38)'}
-						{@const buildParts = garbleFieldParts(check.buildNumber ? formatBuildNumber(check.buildNumber) : undefined, buildWidth, seed)}
-						{@const hashParts = garbleFieldParts(check.manifestHash, hashWidth, seed + 50)}
+						{@const buildParts = garbleFieldParts(check.buildNumber ? formatBuildNumber(check.buildNumber) : undefined, buildWidth, seed, seedModifier)}
+						{@const hashParts = garbleFieldParts(check.manifestHash, hashWidth, seed + 50, seedModifier)}
 						<div class="py-0.5 whitespace-nowrap">
 							<span style="color: rgba(var(--vfd), 0.4);">[{formatLogTime(check.checkedAt)}]</span>
 							<span style="color: {statusColor}; text-shadow: 0 0 6px {check.status === 'ok' ? 'rgba(var(--vfd), 0.5)' : 'rgba(220, 38, 38, 0.5)'};">{check.status.toUpperCase().padStart(3)}</span>
