@@ -240,7 +240,7 @@
 </svelte:head>
 
 <div
-	class="min-h-screen bg-neutral-950 font-mono flex items-center justify-center p-4 relative overflow-hidden"
+	class="min-h-screen bg-neutral-950 font-mono flex items-center justify-center p-6 relative overflow-hidden"
 	style="--vfd: 233, 114, 37;"
 >
 	<!-- Scanline overlay -->
@@ -249,10 +249,10 @@
 	<!-- Subtle vignette -->
 	<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]"></div>
 
-	<div class="relative z-10 w-full max-w-4xl">
+	<div class="relative z-10 w-full max-w-4xl flex flex-col gap-6">
 		<!-- Top status bar -->
 		<div
-			class="border px-4 py-2 grid grid-cols-3 items-center text-xs uppercase tracking-wider mb-6"
+			class="border px-4 py-2 grid grid-cols-3 items-center text-xs uppercase tracking-wider"
 			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.05);"
 		>
 			<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">[ SYSTEM MONITOR ]</span>
@@ -308,7 +308,7 @@
 		</div>
 
 		<!-- Bottom info panels -->
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 			<!-- Build info -->
 			<div
 				class="border px-4 py-3"
@@ -338,7 +338,7 @@
 		</div>
 
 		<!-- Change indicator -->
-		<div class="mt-6 flex items-center justify-center gap-4 text-xs uppercase tracking-wider">
+		<div class="flex items-center justify-center gap-4 text-xs uppercase tracking-wider">
 			<span style="color: rgba(var(--vfd), 0.4);">Last Change:</span>
 			<span
 				style="color: {changeType === 'build' || changeType === 'both' ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.2)'}; text-shadow: {changeType === 'build' || changeType === 'both' ? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)' : 'none'};"
@@ -354,7 +354,7 @@
 
 		<!-- System Log -->
 		<div
-			class="mt-6 border"
+			class="border"
 			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 		>
 			<div
@@ -398,7 +398,7 @@
 		</div>
 
 		<!-- Status indicator -->
-		<div class="mt-4 flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+		<div class="flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
 			<span
 				class="w-2 h-2 rounded-full animate-pulse"
 				style="background-color: rgb(var(--vfd)); box-shadow: 0 0 8px rgba(var(--vfd), 0.8);"
