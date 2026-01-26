@@ -47,8 +47,20 @@ function parseBuildNumber(buildNumber: string): ParsedBuild {
 export const load: PageLoad = () => {
 	// Use unknown cast since data.json may not have all fields (e.g., checks array)
 	const data = dataJson as unknown as Data;
-	const latestBuild = data.builds[0];
-	const previousBuild = data.builds[1];
+
+	// Sort builds by lastSeenAt (most recent first)
+	const sortedBuilds = data.builds.toSorted((a, b) =>
+		new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime()
+	);
+
+	// Get the most recent build (first in sorted array)
+	const latestBuild = sortedBuilds[0];
+	if (!latestBuild) {
+		throw new Error('No builds found in data.json');
+	}
+
+	// Get previous build (second most recent, may be undefined)
+	const previousBuild = sortedBuilds[1];
 
 	// Parse build number to get both sprint and build dates
 	const parsed = parseBuildNumber(latestBuild.buildNumber);
