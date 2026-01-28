@@ -185,18 +185,50 @@
 
 	function shortRegion(region: string): string {
 		const abbrevs: Record<string, string> = {
+			australiacentral: 'auc',
+			australiaeast: 'aue',
+			australiasoutheast: 'ause',
+			austriaeast: 'ate',
+			belgiumcentral: 'bec',
+			brazilsouth: 'brs',
+			canadacentral: 'cac',
+			canadaeast: 'cae',
+			centralindia: 'cin',
+			centralus: 'cus',
+			chilecentral: 'clc',
+			denmarkeast: 'dke',
+			eastasia: 'eas',
 			eastus: 'eus',
 			eastus2: 'eus2',
+			indonesiacentral: 'idc',
+			israelcentral: 'isc',
+			italynorth: 'itn',
+			japaneast: 'jpe',
+			japanwest: 'jpw',
+			koreacentral: 'krc',
+			koreasouth: 'krs',
+			malaysiawest: 'myw',
+			mexicocentral: 'mxc',
+			newzealandnorth: 'nzn',
+			northcentralus: 'ncus',
+			northeurope: 'neu',
+			polandcentral: 'plc',
+			qatarcentral: 'qac',
+			southcentralus: 'scus',
+			southindia: 'sin',
+			southeastasia: 'sea',
+			spaincentral: 'spc',
+			uksouth: 'uks',
+			ukwest: 'ukw',
+			westcentralus: 'wcus',
+			westeurope: 'weu',
+			westindia: 'win',
 			westus: 'wus',
 			westus2: 'wus2',
-			westcentralus: 'wcus',
-			centralus: 'cus',
-			northeurope: 'neu',
-			westeurope: 'weu',
-			southeastasia: 'sea',
-			japaneast: 'jpe'
+			westus3: 'wus3'
 		};
-		return abbrevs[region.toLowerCase()] ?? region.slice(0, 4);
+		const abbrev = abbrevs[region.toLowerCase()] ?? region.slice(0, 4);
+		return abbrev.padEnd(4);
 	}
 
 	function formatBuildNumber(build: string): string {
