@@ -3,85 +3,33 @@
 
 	let { data }: { data: PageData } = $props();
 
-	// Derived values from data (static for prerendered page)
-	const days = $derived(data.days);
-	const latestBuild = $derived(data.latestBuild);
-	const changeType = $derived(data.changeType);
-	const checks = $derived(data.checks);
-	const lastUpdatedAt = $derived(data.lastUpdatedAt);
-	const region = $derived(data.region);
-
-	// Dynamic log field widths (recalculated on client)
-	let logContainer: HTMLDivElement | undefined = $state();
-	let buildWidth = $state(48);
-	let hashWidth = $state(24);
-
 	// Glitch animation state
 	let glitchActive = $state(false);
 	let seedModifier = $state(0);
 	let prefersReducedMotion = $state(false);
 
-	function calculateWidths() {
-		if (!logContainer) return;
+	// Pulse animation for sync ratio
+	let pulseIntensity = $state(1.0);
 
-		// Measure character width using a test element with the same font as the log
-		const testEl = document.createElement('span');
-		testEl.style.visibility = 'hidden';
-		testEl.style.position = 'absolute';
-		testEl.style.whiteSpace = 'pre';
-		// Inherit font from container (which has font-mono class)
-		testEl.textContent = '0'.repeat(100);
-		logContainer.appendChild(testEl);
-		const charWidth = testEl.offsetWidth / 100;
-		logContainer.removeChild(testEl);
+	// Real-time uptime ticker
+	let liveUptimeMs = $state(0);
 
-		// Sanity check: if charWidth is 0 or unreasonably small, skip this calculation
-		if (charWidth < 1) return;
-
-		// Calculate available width (container width minus padding)
-		// Container has pl-4 (16px left), log entries have pr-4 (16px right)
-		// Total horizontal padding: 16px left + 16px right = 32px
-		const containerWidth = logContainer.clientWidth - 32;
-		if (containerWidth <= 0) return;
-
-		// Fixed chars: [time] (18) + status (3) + region (4) + separators (4*3=12) + NEW (4) = 41
-		const fixedChars = 41;
-		const availableChars = Math.floor(containerWidth / charWidth) - fixedChars;
-
-		// Distribute: ~66% to build, ~34% to hash
-		buildWidth = Math.max(28, Math.floor(availableChars * 0.66));
-		hashWidth = Math.max(10, availableChars - buildWidth);
-	}
-
+	// Real-time uptime ticker effect
 	$effect(() => {
-		if (!logContainer) return;
+		if (!data.currentBuild) return;
 
-		// Wait for fonts to load and layout to complete
-		const setup = async () => {
-			// Wait for fonts
-			await document.fonts.ready;
+		const startTime = new Date(data.currentBuild.firstSeenAt).getTime();
 
-			// Wait for next frame to ensure layout is done
-			await new Promise((resolve) => requestAnimationFrame(resolve));
-
-			calculateWidths();
+		const updateUptime = () => {
+			liveUptimeMs = Date.now() - startTime;
 		};
 
-		setup();
+		updateUptime();
+		const interval = setInterval(updateUptime, 1000);
 
-		// Recalculate on resize and increment seed for new garble pattern
-		const resizeObserver = new ResizeObserver(() => {
-			requestAnimationFrame(() => {
-				calculateWidths();
-				seedModifier++;
-			});
-		});
-		resizeObserver.observe(logContainer);
-
-		return () => resizeObserver.disconnect();
+		return () => clearInterval(interval);
 	});
 
-	// Glitch animation loop - reshuffles garble during 85-90% of cycle
 	$effect(() => {
 		// Check for reduced motion preference
 		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -92,7 +40,6 @@
 		};
 		motionQuery.addEventListener('change', handleMotionChange);
 
-		// Don't run animation if reduced motion is preferred
 		if (prefersReducedMotion) {
 			return () => motionQuery.removeEventListener('change', handleMotionChange);
 		}
@@ -101,38 +48,33 @@
 		let lastModifierUpdate = 0;
 		let startTime = 0;
 		const CYCLE_DURATION = 12000; // 12 seconds
-		const GLITCH_START = 0.85; // 85% of cycle
-		const GLITCH_END = 0.9; // 90% of cycle
-		const MODIFIER_INTERVAL = 80; // Update every ~80ms during glitch
+		const GLITCH_START = 0.85;
+		const GLITCH_END = 0.9;
+		const MODIFIER_INTERVAL = 80;
 
 		const animate = (timestamp: number) => {
-			// Initialize start time on first frame
 			if (startTime === 0) {
 				startTime = timestamp;
 			}
 
-			// Calculate elapsed time since animation started
 			const elapsed = timestamp - startTime;
-			// Calculate position in cycle (0-1)
 			const cycleProgress = (elapsed % CYCLE_DURATION) / CYCLE_DURATION;
 
-			// Check if we're in the glitch window (85-90%)
-			const wasGlitchActive = glitchActive;
 			glitchActive = cycleProgress >= GLITCH_START && cycleProgress <= GLITCH_END;
 
-			// Update modifier during glitch burst
 			if (glitchActive) {
 				if (timestamp - lastModifierUpdate >= MODIFIER_INTERVAL) {
 					seedModifier++;
 					lastModifierUpdate = timestamp;
 				}
 			}
-			// Note: seedModifier persists after glitch ends, creating a new static state
+
+			// Pulse effect for sync ratio (slow breathing)
+			pulseIntensity = 0.85 + Math.sin(elapsed / 2000) * 0.15;
 
 			animationFrame = requestAnimationFrame(animate);
 		};
 
-		// Handle page visibility to pause animation when hidden
 		const handleVisibilityChange = () => {
 			if (document.hidden) {
 				if (animationFrame) {
@@ -144,7 +86,6 @@
 		};
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 
-		// Start animation
 		animationFrame = requestAnimationFrame(animate);
 
 		return () => {
@@ -156,131 +97,136 @@
 		};
 	});
 
-	function formatDateTime(iso: string): string {
-		const d = new Date(iso);
-		const year = d.getUTCFullYear();
-		const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-		const day = String(d.getUTCDate()).padStart(2, '0');
-		const hour = String(d.getUTCHours()).padStart(2, '0');
-		const min = String(d.getUTCMinutes()).padStart(2, '0');
-		const sec = String(d.getUTCSeconds()).padStart(2, '0');
-		return `${year}.${month}.${day} // ${hour}:${min}:${sec}Z`;
-	}
-
-	function formatLogTime(iso: string): string {
-		const d = new Date(iso);
-		return d.toLocaleString('en-US', {
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false
-		});
-	}
-
-	function formatRegion(region: string): string {
-		return region.toUpperCase();
-	}
-
-	function shortRegion(region: string): string {
-		const abbrevs: Record<string, string> = {
-			australiacentral: 'auc',
-			australiaeast: 'aue',
-			australiasoutheast: 'ause',
-			austriaeast: 'ate',
-			belgiumcentral: 'bec',
-			brazilsouth: 'brs',
-			canadacentral: 'cac',
-			canadaeast: 'cae',
-			centralindia: 'cin',
-			centralus: 'cus',
-			chilecentral: 'clc',
-			denmarkeast: 'dke',
-			eastasia: 'eas',
-			eastus: 'eus',
-			eastus2: 'eus2',
-			indonesiacentral: 'idc',
-			israelcentral: 'isc',
-			italynorth: 'itn',
-			japaneast: 'jpe',
-			japanwest: 'jpw',
-			koreacentral: 'krc',
-			koreasouth: 'krs',
-			malaysiawest: 'myw',
-			mexicocentral: 'mxc',
-			newzealandnorth: 'nzn',
-			northcentralus: 'ncus',
-			northeurope: 'neu',
-			polandcentral: 'plc',
-			qatarcentral: 'qac',
-			southcentralus: 'scus',
-			southindia: 'sin',
-			southeastasia: 'sea',
-			spaincentral: 'spc',
-			uksouth: 'uks',
-			ukwest: 'ukw',
-			westcentralus: 'wcus',
-			westeurope: 'weu',
-			westindia: 'win',
-			westus: 'wus',
-			westus2: 'wus2',
-			westus3: 'wus3'
-		};
-		const abbrev = abbrevs[region.toLowerCase()] ?? region.slice(0, 4);
-		// Use non-breaking space (\u00A0) for padding so HTML doesn't collapse it
-		return abbrev.padEnd(4, '\u00A0');
-	}
-
 	function formatBuildNumber(build: string): string {
 		return build.replace(/^AiFoundry-/, '');
 	}
 
-	// Garbled log aesthetic helpers (ASCII + basic blocks for reliable monospace width)
-	const GARBLE_CHARS = '░▒▓█#@%&*=-~.:;!?+<>^';
-
-	function seededRandom(seed: number): number {
-		const x = Math.sin(seed) * 10000;
-		return x - Math.floor(x);
+	function formatDateTime(iso: string): string {
+		const d = new Date(iso);
+		const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+		const day = String(d.getUTCDate()).padStart(2, '0');
+		const hour = String(d.getUTCHours()).padStart(2, '0');
+		const min = String(d.getUTCMinutes()).padStart(2, '0');
+		return `${month}.${day} // ${hour}:${min}Z`;
 	}
 
-	function randomGarble(length: number, seed: number): string {
-		let result = '';
-		for (let i = 0; i < length; i++) {
-			const idx = (seededRandom(seed + i) * GARBLE_CHARS.length) | 0;
-			result += GARBLE_CHARS[idx];
+	function formatDuration(hours: number): string {
+		const days = Math.floor(hours / 24);
+		const h = Math.floor(hours % 24);
+		const m = Math.floor((hours * 60) % 60);
+		if (days > 0) return `${days}d ${h}h ${m}m`;
+		if (h > 0) return `${h}h ${m}m`;
+		return `${m}m`;
+	}
+
+	function formatLiveUptime(ms: number): string {
+		const totalSeconds = Math.floor(ms / 1000);
+		const days = Math.floor(totalSeconds / 86400);
+		const hours = Math.floor((totalSeconds % 86400) / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+
+		if (days > 0) {
+			return `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 		}
-		return result;
+		return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 	}
 
-	function garbleFieldParts(
-		value: string | undefined,
-		width: number,
-		seed: number,
-		modifier: number = 0
-	): { left: string; value: string; right: string } {
-		const effectiveSeed = seed + modifier;
-		if (!value) return { left: randomGarble(width, effectiveSeed), value: '', right: '' };
-		if (value.length >= width) return { left: '', value: value.slice(0, width), right: '' };
-
-		const padding = width - value.length;
-		const leftPad = (seededRandom(effectiveSeed) * (padding + 1)) | 0;
-		const rightPad = padding - leftPad;
-
-		return {
-			left: randomGarble(leftPad, effectiveSeed),
-			value,
-			right: randomGarble(rightPad, effectiveSeed + 100)
-		};
+	function getProbabilityColor(prob: number): string {
+		if (prob >= 0.8) return 'rgb(34, 197, 94)'; // green
+		if (prob >= 0.6) return 'rgb(234, 179, 8)'; // yellow
+		if (prob >= 0.4) return 'rgb(249, 115, 22)'; // orange
+		return 'rgb(239, 68, 68)'; // red
 	}
+
+	// Threat level colors
+	function getThreatColor(level: string): string {
+		switch (level) {
+			case 'MINIMAL':
+				return 'rgb(34, 197, 94)'; // green
+			case 'LOW':
+				return 'rgb(59, 130, 246)'; // blue
+			case 'ELEVATED':
+				return 'rgb(234, 179, 8)'; // yellow
+			case 'HIGH':
+				return 'rgb(249, 115, 22)'; // orange
+			case 'CRITICAL':
+				return 'rgb(239, 68, 68)'; // red
+			default:
+				return 'rgb(156, 163, 175)'; // gray
+		}
+	}
+
+	// Status based on entropy level (higher entropy = more chaos = worse)
+	function getStatusText(entropyScore: number): string {
+		if (entropyScore <= 10) return 'ANOMALOUS STABILITY';
+		if (entropyScore <= 25) return 'LOW ENTROPY';
+		if (entropyScore <= 50) return 'MODERATE CHAOS';
+		if (entropyScore <= 75) return 'HIGH ENTROPY';
+		return 'MAXIMUM CHAOS';
+	}
+
+	function getStatusColor(entropyScore: number): string {
+		if (entropyScore <= 25) return 'rgb(34, 197, 94)'; // green - low chaos
+		if (entropyScore <= 50) return 'rgb(234, 179, 8)'; // yellow - moderate
+		return 'rgb(239, 68, 68)'; // red - high chaos
+	}
+
+	// Calculate drift from median
+	const driftFromMedian = $derived(
+		data.currentBuild ? data.currentBuild.lifespanHours - data.medianLifespanHours : 0
+	);
+	const driftSign = $derived(driftFromMedian >= 0 ? '+' : '');
+
+	// INVERT stability to entropy (100 = max chaos, 0 = min chaos)
+	const entropyScore = $derived(100 - data.stabilityScore);
+
+	// Sigma (σ) = variance/chaos score (inverse of consistency)
+	// High consistency = low variance = low sigma
+	const sigmaScore = $derived(100 - data.consistencyScore);
+
+	// Deploy forecast - predict when next deploy might happen
+	const avgLifespanHours = $derived(data.averageLifespanHours);
+	const currentUptimeHours = $derived(liveUptimeMs / (1000 * 60 * 60));
+	const hoursUntilAvgExpiry = $derived(Math.max(0, avgLifespanHours - currentUptimeHours));
+	const deployRisk = $derived(
+		currentUptimeHours >= avgLifespanHours * 1.2
+			? 'HIGH'
+			: currentUptimeHours >= avgLifespanHours * 0.8
+				? 'ELEVATED'
+				: 'LOW'
+	);
+	const deployRiskColor = $derived(
+		deployRisk === 'HIGH'
+			? 'rgb(239, 68, 68)'
+			: deployRisk === 'ELEVATED'
+				? 'rgb(234, 179, 8)'
+				: 'rgb(34, 197, 94)'
+	);
 </script>
 
 <svelte:head>
-	<title>Days Since Last Foundry Build</title>
+	<title>Azure AI Foundry Entropy Tracker</title>
+	<meta
+		name="description"
+		content="Real-time chaos monitoring for Azure AI Foundry EASTUS2 deployments. Track entropy levels, survival probabilities, and deployment threat assessments."
+	/>
+	<meta property="og:title" content="Azure AI Foundry Entropy Tracker" />
+	<meta
+		property="og:description"
+		content="Monitoring deployment chaos and build entropy in real-time"
+	/>
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Azure AI Foundry Entropy Tracker" />
+	<meta
+		name="twitter:description"
+		content="Real-time chaos monitoring for Azure AI Foundry deployments"
+	/>
 </svelte:head>
 
 <div
-	class="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 p-6 font-mono"
+	class="relative flex min-h-screen flex-col overflow-hidden bg-neutral-950 p-4 font-mono md:p-6"
 	style="--vfd: 233, 114, 37;"
 >
 	<!-- Scanline overlay -->
@@ -288,243 +234,694 @@
 		class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,0,0,0.3)_2px,rgba(0,0,0,0.3)_4px)]"
 	></div>
 
-	<!-- Subtle vignette -->
+	<!-- Vignette -->
 	<div
 		class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]"
 	></div>
 
-	<div class="relative z-10 flex w-full max-w-4xl flex-col gap-6">
-		<!-- Top status bar -->
+	<div class="relative z-10 mx-auto w-full max-w-7xl space-y-4">
+		<!-- Header bar -->
 		<div
-			class="grid grid-cols-3 items-center border px-4 py-2 text-xs tracking-wider uppercase"
+			class="grid grid-cols-2 items-center border px-4 py-2 text-sm tracking-wider md:grid-cols-3"
 			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.05);"
 		>
-			<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">[ SYSTEM MONITOR ]</span>
-			<span class="vfd-glow-medium text-center" style="color: rgba(var(--vfd), 0.7);"
-				>◈ {formatRegion(region)}</span
+			<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">[ ENTROPY TRACKER ]</span>
+			<span
+				class="vfd-glow-medium hidden text-center md:block"
+				style="color: rgba(var(--vfd), 0.7);">◈ EASTUS2</span
 			>
-			<span class="text-right" style="color: rgba(var(--vfd), 0.5);"
-				>AZURE AI FOUNDRY BUILD TRACKER v0.1</span
+			<span
+				class="text-right"
+				style="color: rgba(var(--vfd), 0.5);"
+				title="Sigma (σ) = variance/chaos score. Higher σ = more unpredictable deploys"
+				>CHAOS CORE σ{sigmaScore.toFixed(0)}</span
 			>
 		</div>
 
-		<!-- Main display -->
-		<div
-			class="relative border p-8 md:p-12"
-			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
-		>
-			<!-- Corner accents -->
+		{#if !data.currentBuild}
+			<!-- No data state -->
 			<div
-				class="absolute top-0 left-0 h-6 w-6 border-t-2 border-l-2"
-				style="border-color: rgba(var(--vfd), 0.6);"
-			></div>
-			<div
-				class="absolute top-0 right-0 h-6 w-6 border-t-2 border-r-2"
-				style="border-color: rgba(var(--vfd), 0.6);"
-			></div>
-			<div
-				class="absolute bottom-0 left-0 h-6 w-6 border-b-2 border-l-2"
-				style="border-color: rgba(var(--vfd), 0.6);"
-			></div>
-			<div
-				class="absolute right-0 bottom-0 h-6 w-6 border-r-2 border-b-2"
-				style="border-color: rgba(var(--vfd), 0.6);"
-			></div>
-
-			<div class="text-center">
-				<p
-					class="vfd-glow-soft mb-4 text-sm tracking-[0.3em] uppercase"
-					style="color: rgba(var(--vfd), 0.6);"
-				>
-					Days Since Last Build
+				class="border p-12 text-center"
+				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+			>
+				<p class="text-xl" style="color: rgba(var(--vfd), 0.6);">NO EASTUS2 DATA AVAILABLE</p>
+				<p class="mt-2 text-sm" style="color: rgba(var(--vfd), 0.4);">
+					Waiting for first build detection...
 				</p>
+			</div>
+		{:else}
+			<!-- Main grid layout -->
+			<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+				<!-- Left column: Sync Ratio + Stats -->
+				<div class="space-y-4 lg:col-span-2">
+					<!-- SYNC RATIO - Main display -->
+					<div
+						class="relative border p-6 md:p-8"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<!-- Corner accents -->
+						<div
+							class="absolute top-0 left-0 h-6 w-6 border-t-2 border-l-2"
+							style="border-color: rgba(var(--vfd), 0.6);"
+						></div>
+						<div
+							class="absolute top-0 right-0 h-6 w-6 border-t-2 border-r-2"
+							style="border-color: rgba(var(--vfd), 0.6);"
+						></div>
 
-				<!-- VFD-style number display -->
-				<div class="relative inline-block">
-					<!-- Glow layer (behind) -->
-					<div
-						class="absolute inset-0 text-[10rem] leading-none font-bold blur-md select-none md:text-[14rem]"
-						style="color: rgba(var(--vfd), 0.3);"
-						aria-hidden="true"
-					>
-						{days.toString().padStart(3, '0')}
+						<div class="text-center">
+							<p
+								class="vfd-glow-soft mb-4 text-sm tracking-[0.3em] uppercase"
+								style="color: rgba(var(--vfd), 0.6);"
+								title="Entropy Index measures chaos level: 0% = maximum stability, 100% = maximum chaos"
+							>
+								Entropy Index
+							</p>
+
+							<!-- The big number -->
+							<div class="relative inline-block">
+								<!-- Glow layer -->
+								<div
+									class="absolute inset-0 text-[8rem] leading-none font-bold blur-md select-none md:text-[12rem]"
+									style="color: rgba(var(--vfd), {0.3 * pulseIntensity});"
+									aria-hidden="true"
+								>
+									{entropyScore.toFixed(1)}%
+								</div>
+								<!-- Main number -->
+								<div
+									class="vfd-glow-multilayer relative text-[8rem] leading-none font-bold tracking-tight md:text-[12rem]"
+									style="color: rgb(var(--vfd)); opacity: {pulseIntensity};"
+								>
+									{entropyScore.toFixed(1)}%
+								</div>
+							</div>
+
+							<!-- Status text -->
+							<div class="mt-4 space-y-1">
+								<p
+									class="text-lg font-bold tracking-wider"
+									style="color: {getStatusColor(
+										entropyScore
+									)}; text-shadow: 0 0 8px {getStatusColor(entropyScore)};"
+								>
+									{getStatusText(entropyScore)}
+								</p>
+								<p
+									class="text-sm"
+									style="color: rgba(var(--vfd), 0.5);"
+									title="Current build ranks in the {data.percentileRank.toFixed(
+										0
+									)}th percentile of all builds, {driftSign}{(driftFromMedian / 24).toFixed(
+										1
+									)} days from median lifespan"
+								>
+									{data.percentileRank.toFixed(0)}th PERCENTILE // {driftSign}{(
+										driftFromMedian / 24
+									).toFixed(1)}d DEVIATION
+								</p>
+							</div>
+						</div>
 					</div>
-					<!-- Main number -->
+
+					<!-- Stats grid -->
+					<div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+						<!-- Current uptime (LIVE) -->
+						<div
+							class="border px-3 py-2"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-1 flex items-center gap-1 text-[10px] tracking-widest uppercase"
+								style="color: rgba(var(--vfd), 0.4);"
+								title="Live uptime counter for the current build"
+							>
+								Uptime
+								<span
+									class="h-1 w-1 animate-pulse rounded-full"
+									style="background-color: rgb(34, 197, 94); box-shadow: 0 0 4px rgb(34, 197, 94);"
+								></span>
+							</p>
+							<p
+								class="vfd-glow-panel font-mono text-sm font-bold md:text-base"
+								style="color: rgb(var(--vfd));"
+							>
+								{formatLiveUptime(liveUptimeMs)}
+							</p>
+						</div>
+
+						<!-- Median lifespan -->
+						<div
+							class="border px-3 py-2"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-1 text-[10px] tracking-widest uppercase"
+								style="color: rgba(var(--vfd), 0.4);"
+								title="Median build lifespan across all historical builds"
+							>
+								Median
+							</p>
+							<p
+								class="vfd-glow-panel text-base font-bold md:text-lg"
+								style="color: rgb(var(--vfd));"
+							>
+								{formatDuration(data.medianLifespanHours)}
+							</p>
+						</div>
+
+						<!-- Consistency -->
+						<div
+							class="border px-3 py-2"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-1 text-[10px] tracking-widest uppercase"
+								style="color: rgba(var(--vfd), 0.4);"
+								title="Build lifespan consistency (100% = very predictable, 0% = highly chaotic)"
+							>
+								Consistency
+							</p>
+							<p
+								class="vfd-glow-panel text-base font-bold md:text-lg"
+								style="color: rgb(var(--vfd));"
+							>
+								{data.consistencyScore.toFixed(0)}%
+							</p>
+						</div>
+					</div>
+
+					<!-- Extended stats grid -->
+					<div class="grid grid-cols-2 gap-4">
+						<!-- Total uptime -->
+						<div
+							class="border px-3 py-2"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-1 text-[10px] tracking-widest uppercase"
+								style="color: rgba(var(--vfd), 0.4);"
+								title="Combined uptime of all builds tracked"
+							>
+								Total Uptime
+							</p>
+							<p
+								class="vfd-glow-panel text-base font-bold md:text-lg"
+								style="color: rgb(var(--vfd));"
+							>
+								{formatDuration(data.totalUptimeHours)}
+							</p>
+						</div>
+
+						<!-- Deploy frequency -->
+						<div
+							class="border px-3 py-2"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-1 text-[10px] tracking-widest uppercase"
+								style="color: rgba(var(--vfd), 0.4);"
+								title="Average deployment frequency (deploys per day)"
+							>
+								Deploy/Day
+							</p>
+							<p
+								class="vfd-glow-panel text-base font-bold md:text-lg"
+								style="color: rgb(var(--vfd));"
+							>
+								{data.deploysPerDay.toFixed(2)}
+							</p>
+						</div>
+					</div>
+
+					<!-- Survival Probability Panel -->
 					<div
-						class="vfd-glow-multilayer relative text-[10rem] leading-none font-bold tracking-tight md:text-[14rem]"
-						style="color: rgb(var(--vfd));"
+						class="border"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
 					>
-						{days.toString().padStart(3, '0')}
+						<div
+							class="flex items-center gap-2 border-b px-4 py-2"
+							style="border-color: rgba(var(--vfd), 0.3);"
+						>
+							<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">◈</span>
+							<span
+								class="text-sm tracking-wider uppercase"
+								style="color: rgba(var(--vfd), 0.6);"
+								title="Historical probability that builds survive to specific hour milestones"
+								>Chaos Survival Matrix</span
+							>
+						</div>
+
+						<div class="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+							{#each data.survivalProbabilities as prob}
+								<div class="text-center">
+									<div
+										class="mb-2 text-2xl font-bold"
+										style="color: {getProbabilityColor(
+											prob.probability
+										)}; text-shadow: 0 0 8px {getProbabilityColor(prob.probability)};"
+									>
+										{(prob.probability * 100).toFixed(0)}%
+									</div>
+									<div class="text-xs" style="color: rgba(var(--vfd), 0.5);">
+										{prob.hours}h
+									</div>
+									<div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-900">
+										<div
+											class="h-full transition-all"
+											style="width: {prob.probability *
+												100}%; background-color: {getProbabilityColor(
+												prob.probability
+											)}; box-shadow: 0 0 6px {getProbabilityColor(prob.probability)};"
+										></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+
+					<!-- Deploy Forecast -->
+					<div
+						class="border p-4"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<div class="mb-4 flex items-center justify-between">
+							<p
+								class="text-sm tracking-wider uppercase"
+								style="color: rgba(var(--vfd), 0.6);"
+								title="Predicted time until next deploy based on historical average lifespan"
+							>
+								Chaos Incoming
+							</p>
+							<span
+								class="rounded px-2 py-0.5 text-xs font-bold tracking-wide"
+								style="color: {deployRiskColor}; background-color: {deployRiskColor}20; border: 1px solid {deployRiskColor}; box-shadow: 0 0 6px {deployRiskColor}40;"
+							>
+								{deployRisk} RISK
+							</span>
+						</div>
+
+						<div class="mb-4 text-center">
+							{#if hoursUntilAvgExpiry > 0}
+								<div class="mb-1 text-xs" style="color: rgba(var(--vfd), 0.5);">Expected in</div>
+								<div
+									class="font-mono text-3xl font-bold"
+									style="color: {deployRiskColor}; text-shadow: 0 0 8px {deployRiskColor};"
+								>
+									{formatLiveUptime(hoursUntilAvgExpiry * 3600 * 1000)}
+								</div>
+							{:else}
+								<div class="mb-1 text-xs" style="color: rgba(var(--vfd), 0.5);">
+									Beyond average lifespan
+								</div>
+								<div
+									class="text-2xl font-bold"
+									style="color: rgb(239, 68, 68); text-shadow: 0 0 8px rgb(239, 68, 68);"
+								>
+									OVERDUE
+								</div>
+								<div class="mt-1 text-sm" style="color: rgba(var(--vfd), 0.6);">
+									+{formatDuration(Math.abs(hoursUntilAvgExpiry))}
+								</div>
+							{/if}
+						</div>
+
+						<!-- Progress bar showing current uptime vs average -->
+						<div class="mb-2">
+							<div
+								class="mb-1 flex justify-between text-[10px]"
+								style="color: rgba(var(--vfd), 0.5);"
+							>
+								<span>Current</span>
+								<span>Avg: {formatDuration(avgLifespanHours)}</span>
+							</div>
+							<div class="h-2 w-full overflow-hidden rounded-full bg-neutral-900">
+								<div
+									class="h-full transition-all duration-1000"
+									style="width: {Math.min(
+										100,
+										(currentUptimeHours / avgLifespanHours) * 100
+									)}%; background-color: {deployRiskColor}; box-shadow: 0 0 8px {deployRiskColor};"
+								></div>
+							</div>
+						</div>
+
+						<div class="text-xs" style="color: rgba(var(--vfd), 0.4);">
+							Based on {data.totalBuilds} build average
+						</div>
+					</div>
+
+					<!-- Current build info -->
+					<div
+						class="border px-4 py-3"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<div class="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+							<div>
+								<span style="color: rgba(var(--vfd), 0.4);">BUILD:</span>
+								<span class="ml-2 font-bold" style="color: rgb(var(--vfd));"
+									>{formatBuildNumber(data.currentBuild.buildNumber)}</span
+								>
+							</div>
+							<div>
+								<span style="color: rgba(var(--vfd), 0.4);">MANIFEST:</span>
+								<span class="ml-2 font-bold" style="color: rgb(var(--vfd));"
+									>{data.currentBuild.manifestHash}</span
+								>
+							</div>
+							<div>
+								<span style="color: rgba(var(--vfd), 0.4);">DEPLOYED:</span>
+								<span class="ml-2" style="color: rgba(var(--vfd), 0.7);"
+									>{formatDateTime(data.currentBuild.firstSeenAt)}</span
+								>
+							</div>
+							<div>
+								<span style="color: rgba(var(--vfd), 0.4);">LAST SEEN:</span>
+								<span class="ml-2" style="color: rgba(var(--vfd), 0.7);"
+									>{formatDateTime(data.currentBuild.lastSeenAt)}</span
+								>
+							</div>
+						</div>
 					</div>
 				</div>
 
-				<p
-					class="vfd-glow-soft mt-4 text-sm tracking-[0.2em] uppercase"
-					style="color: rgba(var(--vfd), 0.6);"
-				>
-					{days === 1 ? 'Day' : 'Days'} Elapsed
-				</p>
-			</div>
-		</div>
+				<!-- Right column: Threat assessment + warnings -->
+				<div class="flex h-full flex-col gap-4">
+					<!-- Threat level -->
+					<div
+						class="relative border p-6"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<div
+							class="absolute top-0 right-0 h-4 w-4 border-t-2 border-r-2"
+							style="border-color: rgba(var(--vfd), 0.6);"
+						></div>
 
-		<!-- Bottom info panels -->
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			<!-- Build info -->
-			<div
-				class="border px-4 py-3"
-				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
-			>
-				<p class="mb-1 text-[10px] tracking-widest uppercase" style="color: rgba(var(--vfd), 0.4);">
-					Latest Build
-				</p>
-				<p class="vfd-glow-panel text-lg font-bold" style="color: rgb(var(--vfd));">
-					{formatBuildNumber(latestBuild.buildNumber)}
-				</p>
-			</div>
+						<p
+							class="mb-4 text-sm tracking-[0.2em] uppercase"
+							style="color: rgba(var(--vfd), 0.5);"
+							title="Deployment frequency threat level based on recent deploy patterns"
+						>
+							Entropy Threat Level
+						</p>
 
-			<!-- Manifest hash -->
-			<div
-				class="border px-4 py-3"
-				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
-			>
-				<p class="mb-1 text-[10px] tracking-widest uppercase" style="color: rgba(var(--vfd), 0.4);">
-					Manifest Hash
-				</p>
-				<p class="vfd-glow-panel text-lg font-bold" style="color: rgb(var(--vfd));">
-					{latestBuild.manifestHash}
-				</p>
-			</div>
-
-			<!-- Last check -->
-			<div
-				class="border px-4 py-3"
-				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
-			>
-				<p class="mb-1 text-[10px] tracking-widest uppercase" style="color: rgba(var(--vfd), 0.4);">
-					Last Check
-				</p>
-				<p class="vfd-glow-panel text-lg font-bold" style="color: rgb(var(--vfd));">
-					{formatDateTime(lastUpdatedAt)}
-				</p>
-			</div>
-		</div>
-
-		<!-- Change indicator -->
-		<div class="flex items-center justify-center gap-4 text-xs tracking-wider uppercase">
-			<span style="color: rgba(var(--vfd), 0.4);">Last Change:</span>
-			<span
-				style="color: {changeType === 'build' || changeType === 'both'
-					? 'rgb(var(--vfd))'
-					: 'rgba(var(--vfd), 0.2)'}; text-shadow: {changeType === 'build' || changeType === 'both'
-					? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)'
-					: 'none'};"
-			>
-				▲ BUILD
-			</span>
-			<span
-				style="color: {changeType === 'hash' || changeType === 'both'
-					? 'rgb(var(--vfd))'
-					: 'rgba(var(--vfd), 0.2)'}; text-shadow: {changeType === 'hash' || changeType === 'both'
-					? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)'
-					: 'none'};"
-			>
-				▲ MANIFEST
-			</span>
-		</div>
-
-		<!-- System Log -->
-		<div
-			class="border"
-			style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
-		>
-			<div
-				class="flex items-center gap-2 border-b px-4 py-2"
-				style="border-color: rgba(var(--vfd), 0.3);"
-			>
-				<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">▌</span>
-				<span class="text-xs tracking-wider uppercase" style="color: rgba(var(--vfd), 0.6);"
-					>System Log</span
-				>
-			</div>
-			<div class="overflow-x-auto py-4 pl-4 text-xs" bind:this={logContainer}>
-				{#if checks.length === 0}
-					<div style="color: rgba(var(--vfd), 0.4);">No check history available yet.</div>
-				{:else}
-					{#each checks as check, i}
-						{@const seed = new Date(check.checkedAt).getTime()}
-						{@const prevCheck = checks[i + 1]}
-						{@const buildChanged = prevCheck && check.buildNumber !== prevCheck.buildNumber}
-						{@const hashChanged = prevCheck && check.manifestHash !== prevCheck.manifestHash}
-						{@const regionChanged = prevCheck && check.region !== prevCheck.region}
-						{@const statusColor = check.status === 'ok' ? 'rgb(var(--vfd))' : 'rgb(220, 38, 38)'}
-						{@const buildParts = garbleFieldParts(
-							check.buildNumber ? formatBuildNumber(check.buildNumber) : undefined,
-							buildWidth,
-							seed,
-							seedModifier
-						)}
-						{@const hashParts = garbleFieldParts(
-							check.manifestHash,
-							hashWidth,
-							seed + 50,
-							seedModifier
-						)}
-						<div class="py-0.5 pr-4 whitespace-nowrap">
-							<span style="color: rgba(var(--vfd), 0.4);">[{formatLogTime(check.checkedAt)}]</span>
-							<span
-								style="color: {statusColor}; text-shadow: var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 6px {check.status ===
-								'ok'
-									? 'rgba(var(--vfd), 0.5)'
-									: 'rgba(220, 38, 38, 0.5)'};">{check.status.toUpperCase().padStart(3)}</span
+						<!-- Threat level indicator -->
+						<div class="mb-3">
+							<div
+								class="text-3xl font-bold tracking-wide"
+								style="color: {getThreatColor(
+									data.threatLevel
+								)}; text-shadow: 0 0 12px {getThreatColor(data.threatLevel)};"
 							>
-							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+								{data.threatLevel}
+							</div>
+						</div>
+
+						<!-- Threat bars (fills from bottom to top) -->
+						<div class="space-y-1.5">
+							{#each ['CRITICAL', 'HIGH', 'ELEVATED', 'LOW', 'MINIMAL'] as level, i}
+								{@const levelIndex = ['MINIMAL', 'LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].indexOf(
+									level
+								)}
+								{@const currentIndex = ['MINIMAL', 'LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].indexOf(
+									data.threatLevel
+								)}
+								{@const isActive = levelIndex <= currentIndex}
+								<div class="flex items-center gap-2">
+									<div
+										class="h-1.5 flex-1"
+										style="background-color: {isActive
+											? getThreatColor(level)
+											: 'rgba(var(--vfd), 0.1)'}; box-shadow: {isActive
+											? `0 0 6px ${getThreatColor(level)}`
+											: 'none'};"
+									></div>
+									<span
+										class="w-16 text-[10px] tracking-wider"
+										style="color: {isActive ? getThreatColor(level) : 'rgba(var(--vfd), 0.3)'};"
+									>
+										{level}
+									</span>
+								</div>
+							{/each}
+						</div>
+
+						<div class="mt-4 space-y-1 text-xs" style="color: rgba(var(--vfd), 0.5);">
+							<p>LAST DEPLOY: {formatDuration(data.hoursSinceLastDeploy)} AGO</p>
+							<p>TRACKING: {data.totalBuilds} BUILDS</p>
+						</div>
+					</div>
+
+					<!-- System alerts -->
+					<div
+						class="border p-4"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<div class="mb-3 flex items-center gap-2">
 							<span
-								style="color: {regionChanged
-									? 'rgb(var(--vfd))'
-									: 'rgba(var(--vfd), 0.6)'}; text-shadow: {regionChanged
-									? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)'
-									: 'none'};">{shortRegion(check.region)}</span
-							>
-							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
-							<span style="color: rgba(var(--vfd), 0.25);">{buildParts.left}</span><span
-								style="color: {buildChanged
-									? 'rgb(var(--vfd))'
-									: 'rgba(var(--vfd), 0.7)'}; text-shadow: {buildChanged
-									? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)'
-									: 'none'};">{buildParts.value}</span
-							><span style="color: rgba(var(--vfd), 0.25);">{buildParts.right}</span>
-							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
-							<span style="color: rgba(var(--vfd), 0.25);">{hashParts.left}</span><span
-								style="color: {hashChanged
-									? 'rgb(var(--vfd))'
-									: 'rgba(var(--vfd), 0.7)'}; text-shadow: {hashChanged
-									? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.6)'
-									: 'none'};">{hashParts.value}</span
-							><span style="color: rgba(var(--vfd), 0.25);">{hashParts.right}</span>
-							<span style="color: rgba(var(--vfd), 0.3);"> │ </span>
+								class="h-2 w-2 animate-pulse rounded-full"
+								style="background-color: {getStatusColor(
+									entropyScore
+								)}; box-shadow: 0 0 8px {getStatusColor(entropyScore)};"
+							></span>
 							<span
-								style="color: {check.isNewBuild
-									? 'rgb(var(--vfd))'
-									: 'rgba(var(--vfd), 0.2)'}; text-shadow: {check.isNewBuild
-									? 'var(--chroma-r, 0px) 0 rgba(255, 0, 64, var(--chroma-opacity, 0)), var(--chroma-c, 0px) 0 rgba(0, 255, 255, var(--chroma-opacity, 0)), 0 0 8px rgba(var(--vfd), 0.8)'
-									: 'none'};">{check.isNewBuild ? '*NEW' : '░░░░'}</span
+								class="text-sm tracking-wider uppercase"
+								style="color: rgba(var(--vfd), 0.6);"
+								title="Active chaos and anomaly alerts based on current system state"
+								>Entropy Alerts</span
 							>
-							{#if check.errorMessage}
-								<span style="color: rgba(220, 38, 38, 0.7);"> {check.errorMessage}</span>
+						</div>
+
+						<div class="space-y-2 text-xs">
+							{#if entropyScore <= 10}
+								<div class="flex gap-2" title="Entropy ≤10% - Build showing exceptional stability">
+									<span style="color: rgb(34, 197, 94);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">Anomalous stability detected</span>
+								</div>
+							{/if}
+
+							{#if data.currentBuild.lifespanHours > data.longestBuild?.lifespanHours * 0.9}
+								<div class="flex gap-2">
+									<span style="color: rgb(234, 179, 8);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">Build defying entropy curve</span>
+								</div>
+							{/if}
+
+							{#if data.threatLevel === 'HIGH' || data.threatLevel === 'CRITICAL'}
+								<div class="flex gap-2">
+									<span style="color: rgb(239, 68, 68);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">Chaos frequency critical</span>
+								</div>
+							{/if}
+
+							{#if data.currentBuild.lifespanHours < data.medianLifespanHours * 0.5}
+								<div class="flex gap-2">
+									<span style="color: rgb(249, 115, 22);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">High entropy detected</span>
+								</div>
+							{/if}
+
+							{#if hoursUntilAvgExpiry < 0}
+								<div class="flex gap-2">
+									<span style="color: rgb(239, 68, 68);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">Build exceeded average lifespan</span>
+								</div>
+							{/if}
+
+							{#if sigmaScore > 75}
+								<div class="flex gap-2" title="σ >75 - Build lifespans are highly unpredictable">
+									<span style="color: rgb(249, 115, 22);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);"
+										>High variance detected (σ{sigmaScore.toFixed(0)})</span
+									>
+								</div>
+							{/if}
+
+							{#if data.consistencyScore < 30}
+								<div
+									class="flex gap-2"
+									title="Consistency <30% - Deploy timing is extremely unpredictable"
+								>
+									<span style="color: rgb(234, 179, 8);">▲</span>
+									<span style="color: rgba(var(--vfd), 0.7);">Deploy pattern highly irregular</span>
+								</div>
+							{/if}
+
+							{#if entropyScore > 10 && data.threatLevel !== 'HIGH' && data.threatLevel !== 'CRITICAL' && !(hoursUntilAvgExpiry < 0) && !(sigmaScore > 75) && !(data.consistencyScore < 30)}
+								<div class="flex gap-2">
+									<span style="color: rgba(var(--vfd), 0.4);">○</span>
+									<span style="color: rgba(var(--vfd), 0.5);">Entropy within parameters</span>
+								</div>
 							{/if}
 						</div>
-					{/each}
-				{/if}
-			</div>
-		</div>
+					</div>
 
-		<!-- Status indicator -->
-		<div class="flex items-center justify-center gap-2 text-xs tracking-wider uppercase">
+					<!-- Historical Records -->
+					<div
+						class="border p-4"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<p
+							class="mb-3 text-sm tracking-wider uppercase"
+							style="color: rgba(var(--vfd), 0.6);"
+							title="Longest, shortest, and average build lifespans from all tracked builds"
+						>
+							Historical Records
+						</p>
+
+						<div class="space-y-1.5 text-xs">
+							<div class="flex justify-between">
+								<span style="color: rgba(var(--vfd), 0.5);">Longest:</span>
+								<span style="color: rgba(var(--vfd), 0.7);"
+									>{formatDuration(data.longestBuild?.lifespanHours ?? 0)}</span
+								>
+							</div>
+							<div class="flex justify-between">
+								<span style="color: rgba(var(--vfd), 0.5);">Shortest:</span>
+								<span style="color: rgba(var(--vfd), 0.7);"
+									>{formatDuration(data.shortestBuild?.lifespanHours ?? 0)}</span
+								>
+							</div>
+							<div class="flex justify-between">
+								<span style="color: rgba(var(--vfd), 0.5);">Average:</span>
+								<span style="color: rgba(var(--vfd), 0.7);"
+									>{formatDuration(data.averageLifespanHours)}</span
+								>
+							</div>
+						</div>
+					</div>
+
+					<!-- Build Comparison -->
+					{#if data.previousBuild}
+						{@const diff = data.currentBuild.lifespanHours - data.previousBuild.lifespanHours}
+						{@const diffSign = diff >= 0 ? '+' : ''}
+						<div
+							class="border p-4"
+							style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+						>
+							<p
+								class="mb-3 text-sm tracking-wider uppercase"
+								style="color: rgba(var(--vfd), 0.6);"
+							>
+								Current vs Previous
+							</p>
+
+							<div class="space-y-2 text-xs">
+								<div>
+									<div class="mb-0.5 flex justify-between">
+										<span style="color: rgba(var(--vfd), 0.5);">Lifespan Change:</span>
+										<span style="color: {diff >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'};">
+											{diffSign}{formatDuration(Math.abs(diff))}
+										</span>
+									</div>
+								</div>
+
+								<div class="text-[10px]" style="color: rgba(var(--vfd), 0.4);">
+									Prev: {formatBuildNumber(data.previousBuild.buildNumber)}
+								</div>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Statistical Confidence -->
+					<div
+						class="flex flex-1 flex-col justify-center border p-4"
+						style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+					>
+						<p
+							class="mb-4 text-center text-sm tracking-wider uppercase"
+							style="color: rgba(var(--vfd), 0.6);"
+							title="Statistical reliability based on sample size (20+ builds = 100% confidence)"
+						>
+							Data Confidence
+						</p>
+
+						<div class="text-center">
+							<div
+								class="mb-2 text-4xl font-bold"
+								style="color: rgb(var(--vfd)); text-shadow: 0 0 12px rgba(var(--vfd), 0.6);"
+							>
+								{Math.min(100, (data.totalBuilds / 20) * 100).toFixed(0)}%
+							</div>
+							<div class="mb-3 text-xs" style="color: rgba(var(--vfd), 0.5);">
+								Statistical Reliability
+							</div>
+							<div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
+								<div
+									class="h-full transition-all"
+									style="width: {Math.min(
+										100,
+										(data.totalBuilds / 20) * 100
+									)}%; background-color: rgb(var(--vfd)); box-shadow: 0 0 8px rgba(var(--vfd), 0.6);"
+								></div>
+							</div>
+							<div class="mt-3 text-[10px]" style="color: rgba(var(--vfd), 0.4);">
+								{data.totalBuilds} / 20 samples
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Build history log -->
+			<div
+				class="border"
+				style="border-color: rgba(var(--vfd), 0.3); background-color: rgba(var(--vfd), 0.03);"
+			>
+				<div
+					class="flex items-center gap-2 border-b px-4 py-2"
+					style="border-color: rgba(var(--vfd), 0.3);"
+				>
+					<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">▌</span>
+					<span class="text-sm tracking-wider uppercase" style="color: rgba(var(--vfd), 0.6);"
+						>Entropy Timeline // Recent 10</span
+					>
+				</div>
+
+				<div class="overflow-x-auto p-4 text-sm">
+					<div class="space-y-1.5">
+						{#each data.recentBuilds as build, i}
+							{@const isCurrent = i === 0}
+							<div
+								class="flex flex-wrap items-center gap-x-3 gap-y-1 py-1"
+								style="border-left: 2px solid {isCurrent
+									? 'rgb(var(--vfd))'
+									: 'rgba(var(--vfd), 0.2)'}; padding-left: 12px;"
+							>
+								<span
+									class="font-mono font-bold"
+									style="color: {isCurrent ? 'rgb(var(--vfd))' : 'rgba(var(--vfd), 0.6)'};"
+								>
+									{formatBuildNumber(build.buildNumber)}
+								</span>
+								<span style="color: rgba(var(--vfd), 0.4);">│</span>
+								<span style="color: rgba(var(--vfd), 0.5);">{build.manifestHash}</span>
+								<span style="color: rgba(var(--vfd), 0.4);">│</span>
+								<span style="color: rgba(var(--vfd), 0.6);"
+									>{formatDuration(build.lifespanHours)}</span
+								>
+								{#if isCurrent && build.isActive}
+									<span style="color: rgb(34, 197, 94); text-shadow: 0 0 6px rgb(34, 197, 94);"
+										>*ACTIVE</span
+									>
+								{/if}
+								<span class="text-xs" style="color: rgba(var(--vfd), 0.4);"
+									>{formatDateTime(build.firstSeenAt)}</span
+								>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Footer -->
+		<div class="flex items-center justify-center gap-2 pb-4 text-sm tracking-wider uppercase">
 			<span
 				class="h-2 w-2 animate-pulse rounded-full"
 				style="background-color: rgb(var(--vfd)); box-shadow: 0 0 8px rgba(var(--vfd), 0.8);"
 			></span>
-			<span style="color: rgba(var(--vfd), 0.5);">Monitoring (Hopefully) Active</span>
+			<span style="color: rgba(var(--vfd), 0.5);">ENTROPY MONITORING ACTIVE</span>
 		</div>
 	</div>
 
@@ -578,14 +975,12 @@
 			filter: none;
 			opacity: 1;
 		}
-		/* Calm period */
 		5%,
 		84% {
 			transform: none;
 			filter: none;
 			opacity: 1;
 		}
-		/* Glitch burst - horizontal shifts like v-sync issues */
 		85% {
 			transform: translateX(-4px);
 			filter: contrast(1.15) brightness(1.05);
@@ -647,7 +1042,6 @@
 			--chroma-c: 0px;
 			--chroma-opacity: 0;
 		}
-		/* RGB channel separation */
 		85% {
 			--chroma-r: -2px;
 			--chroma-c: 2px;
@@ -758,14 +1152,12 @@
 		animation-delay: 0.5s;
 	}
 
-	/* Apply glitch effects to main content */
 	:global(.relative.z-10) {
 		animation:
 			display-glitch 12s steps(1) infinite,
 			chromatic-aberration 12s steps(1) infinite;
 	}
 
-	/* Respect reduced motion preference */
 	@media (prefers-reduced-motion: reduce) {
 		:global(.relative.z-10) {
 			animation: none;

@@ -1,5 +1,5 @@
 {
-	"name": "days-since-last-foundry-build",
+	"name": "foundry-entropy-tracker",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
