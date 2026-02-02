@@ -228,7 +228,8 @@
 			westus3: 'wus3'
 		};
 		const abbrev = abbrevs[region.toLowerCase()] ?? region.slice(0, 4);
-		return abbrev.padEnd(4);
+		// Use non-breaking space (\u00A0) for padding so HTML doesn't collapse it
+		return abbrev.padEnd(4, '\u00A0');
 	}
 
 	function formatBuildNumber(build: string): string {
