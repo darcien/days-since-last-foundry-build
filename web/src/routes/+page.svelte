@@ -185,6 +185,13 @@
 	// High consistency = low variance = low sigma
 	const sigmaScore = $derived(100 - data.consistencyScore);
 
+	// Particle intensity scales with entropy
+	const particleCount = $derived(Math.round(15 + (entropyScore / 100) * 30));
+	const particleDuration = $derived(12 - (entropyScore / 100) * 6);
+	const particleOpacity = $derived(0.5 + (entropyScore / 100) * 0.5);
+	const particleSize = $derived(4 + (entropyScore / 100) * 4);
+	const particleGlow = $derived(8 + (entropyScore / 100) * 8);
+
 	// Deploy forecast - predict when next deploy might happen
 	const avgLifespanHours = $derived(data.averageLifespanHours);
 	const currentUptimeHours = $derived(liveUptimeMs / (1000 * 60 * 60));
@@ -240,8 +247,11 @@
 	></div>
 
 	<!-- Particle field -->
-	<div class="particles pointer-events-none fixed inset-0">
-		{#each Array(30) as _, i}
+	<div
+		class="particles pointer-events-none fixed inset-0"
+		style="--p-duration: {particleDuration}s; --p-opacity: {particleOpacity}; --p-size: {particleSize}px; --p-glow: {particleGlow}px;"
+	>
+		{#each Array(particleCount) as _, i}
 			<div
 				class="particle"
 				style="left: {(i * 17 + i * i * 3) % 100}%; animation-delay: {(i * 0.7 + i * i * 0.1) %
@@ -1172,13 +1182,13 @@
 	/* Particle field animations */
 	.particle {
 		position: absolute;
-		width: 4px;
-		height: 4px;
+		width: var(--p-size, 4px);
+		height: var(--p-size, 4px);
 		background: rgb(var(--vfd));
 		border-radius: 50%;
 		opacity: 0;
-		animation: float 12s ease-in-out infinite;
-		box-shadow: 0 0 8px rgba(var(--vfd), 1);
+		animation: float var(--p-duration, 12s) ease-in-out infinite;
+		box-shadow: 0 0 var(--p-glow, 8px) rgba(var(--vfd), 1);
 		bottom: 0;
 	}
 
@@ -1188,7 +1198,7 @@
 			opacity: 0;
 		}
 		5% {
-			opacity: 0.8;
+			opacity: var(--p-opacity, 0.8);
 		}
 		25% {
 			transform: translateY(-25vh) translateX(-20px) rotate(90deg);
@@ -1200,7 +1210,7 @@
 			transform: translateY(-75vh) translateX(-10px) rotate(270deg);
 		}
 		95% {
-			opacity: 0.7;
+			opacity: calc(var(--p-opacity, 0.8) * 0.875);
 		}
 		100% {
 			transform: translateY(-100vh) translateX(30px) rotate(360deg);
@@ -1218,7 +1228,7 @@
 			opacity: 0;
 		}
 		5% {
-			opacity: 0.8;
+			opacity: var(--p-opacity, 0.8);
 		}
 		20% {
 			transform: translateY(-20vh) translateX(50px) rotate(-45deg);
@@ -1233,7 +1243,7 @@
 			transform: translateY(-80vh) translateX(-20px) rotate(225deg);
 		}
 		95% {
-			opacity: 0.7;
+			opacity: calc(var(--p-opacity, 0.8) * 0.875);
 		}
 		100% {
 			transform: translateY(-100vh) translateX(40px) rotate(360deg);
