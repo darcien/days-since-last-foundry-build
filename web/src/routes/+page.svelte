@@ -269,7 +269,7 @@
 			<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">[ ENTROPY TRACKER ]</span>
 			<span
 				class="vfd-glow-medium hidden text-center md:block"
-				style="color: rgba(var(--vfd), 0.7);">◈ EASTUS2</span
+				style="color: rgba(var(--vfd), 0.7);">◈ EASTUS2 ◈</span
 			>
 			<span
 				class="text-right"
@@ -484,7 +484,6 @@
 							class="flex items-center gap-2 border-b px-4 py-2"
 							style="border-color: rgba(var(--vfd), 0.3);"
 						>
-							<span class="vfd-glow-strong" style="color: rgb(var(--vfd));">◈</span>
 							<span
 								class="text-sm tracking-wider uppercase"
 								style="color: rgba(var(--vfd), 0.6);"
