@@ -1,6 +1,43 @@
 {
-  "lastUpdatedAt": "2026-03-01T14:59:17.681Z",
+  "lastUpdatedAt": "2026-03-01T15:58:28.946Z",
   "builds": [
+    {
+      "firstSeenAt": "2026-03-01T15:58:28.946Z",
+      "lastSeenAt": "2026-03-01T15:58:28.946Z",
+      "buildNumber": "AiFoundry-main-2026-02-25.2",
+      "manifestHash": "f9434fb1",
+      "rawConfig": {
+        "environment": {
+          "name": "production",
+          "region": "southcentralus",
+          "buildNumber": "AiFoundry-main-2026-02-25.2"
+        },
+        "config": {
+          "aiStudioUrl": "https://ai.azure.com",
+          "amlBackendEndpoint": "https://ai.azure.com",
+          "appInsightsConnection": "InstrumentationKey=5e03b637-b7ee-42c3-b241-386e21c5435a;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=2fd43690-3cf2-47e0-8022-34c10f3c68a4",
+          "appOrigin": "https://ai.azure.com",
+          "apimHostSuffix": ".services.ai.azure.com",
+          "azureManagementEndpoint": "https://management.azure.com",
+          "azurePortal": "https://portal.azure.com",
+          "catalog": "https://api.catalog.azureml.ms",
+          "cloudInstanceType": "public",
+          "cognitiveSearchEndpoint": "https://search.azure.com",
+          "cognitiveServicesEndpoint": "https://cognitiveservices.azure.com",
+          "cognitiveServicesSuffix": "cognitiveservices.azure.com",
+          "foundryDataPlaneSuffix": "services.ai.azure.com",
+          "envName": "production",
+          "fcpEndpoint": "https://ai.azure.com/api/{region}",
+          "feedbackApiUrl": "https://petrol.office.microsoft.com/v1/feedback",
+          "graphEndpoint": "https://graph.microsoft.com",
+          "hephaestusAgentEndpoint": "https://ai.azure.com/api/eastus2/hephaestus-agent/v1.0",
+          "logAnalytics": "https://api.loganalytics.io",
+          "modelCatalogFdCdn": "https://ai.azure.com/modelcache",
+          "searchEndpointSuffix": "search.windows.net",
+          "defaultAIProjectLocation": "eastus2"
+        }
+      }
+    },
     {
       "firstSeenAt": "2026-02-28T05:21:56.838Z",
       "lastSeenAt": "2026-03-01T05:12:18.064Z",
@@ -1480,6 +1517,15 @@
     }
   ],
   "checks": [
+    {
+      "checkedAt": "2026-03-01T15:58:28.946Z",
+      "status": "ok",
+      "durationMs": 413,
+      "httpStatus": 200,
+      "buildNumber": "AiFoundry-main-2026-02-25.2",
+      "manifestHash": "f9434fb1",
+      "isNewBuild": true
+    },
     {
       "checkedAt": "2026-03-01T14:59:17.681Z",
       "status": "ok",
@@ -2981,15 +3027,6 @@
       "httpStatus": 200,
       "buildNumber": "AiFoundry-2026-Feb-17-2026-02-20.3",
       "manifestHash": "465ac6e6",
-      "isNewBuild": false
-    },
-    {
-      "checkedAt": "2026-02-21T13:32:23.522Z",
-      "status": "ok",
-      "durationMs": 169,
-      "httpStatus": 200,
-      "buildNumber": "AiFoundry-2026-Feb-10-2026-02-18.1",
-      "manifestHash": "1f5df9c5",
       "isNewBuild": false
     }
   ]
