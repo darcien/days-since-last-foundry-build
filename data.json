@@ -1,6 +1,45 @@
 {
-  "lastUpdatedAt": "2026-03-12T15:42:20.486Z",
+  "lastUpdatedAt": "2026-03-12T16:43:44.954Z",
   "builds": [
+    {
+      "firstSeenAt": "2026-03-12T16:43:44.953Z",
+      "lastSeenAt": "2026-03-12T16:43:44.953Z",
+      "buildNumber": "AiFoundry-2026-Mar-05-2026-03-12.4",
+      "manifestHash": "84b423bf",
+      "rawConfig": {
+        "environment": {
+          "name": "production",
+          "region": "centralus",
+          "buildNumber": "AiFoundry-2026-Mar-05-2026-03-12.4"
+        },
+        "config": {
+          "aiStudioUrl": "https://ai.azure.com",
+          "amlBackendEndpoint": "https://ai.azure.com",
+          "appInsightsConnection": "InstrumentationKey=5e03b637-b7ee-42c3-b241-386e21c5435a;IngestionEndpoint=https://ai.azure.com/foundry-telemetry/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=2fd43690-3cf2-47e0-8022-34c10f3c68a4",
+          "appOrigin": "https://ai.azure.com",
+          "apimHostSuffix": ".services.ai.azure.com",
+          "azureManagementEndpoint": "https://management.azure.com",
+          "azurePortal": "https://portal.azure.com",
+          "catalog": "https://api.catalog.azureml.ms",
+          "cloudInstanceType": "public",
+          "cognitiveSearchEndpoint": "https://search.azure.com",
+          "cognitiveServicesEndpoint": "https://cognitiveservices.azure.com",
+          "cognitiveServicesSuffix": "cognitiveservices.azure.com",
+          "foundryDataPlaneSuffix": "services.ai.azure.com",
+          "envName": "production",
+          "fcpEndpoint": "https://ai.azure.com/api/{region}",
+          "feedbackApiUrl": "https://petrol.office.microsoft.com/v1/feedback",
+          "graphEndpoint": "https://graph.microsoft.com",
+          "hephaestusAgentEndpoint": "https://ai.azure.com/api/eastus2/hephaestus-agent/v1.0",
+          "logAnalytics": "https://api.loganalytics.io",
+          "modelCatalogFdCdn": "https://ai.azure.com/modelcache",
+          "searchEndpointSuffix": "search.windows.net",
+          "defaultAIProjectLocation": "eastus2",
+          "fabricDatahubEndpoint": "https://daily.fabric.microsoft.com"
+        },
+        "cloudApiHost": "https://centralus.api.azureml.ms"
+      }
+    },
     {
       "firstSeenAt": "2026-03-12T15:42:20.485Z",
       "lastSeenAt": "2026-03-12T15:42:20.485Z",
@@ -2270,6 +2309,15 @@
   ],
   "checks": [
     {
+      "checkedAt": "2026-03-12T16:43:44.954Z",
+      "status": "ok",
+      "durationMs": 164,
+      "httpStatus": 200,
+      "buildNumber": "AiFoundry-2026-Mar-05-2026-03-12.4",
+      "manifestHash": "84b423bf",
+      "isNewBuild": true
+    },
+    {
       "checkedAt": "2026-03-12T15:42:20.486Z",
       "status": "ok",
       "durationMs": 481,
@@ -3767,15 +3815,6 @@
       "checkedAt": "2026-03-04T14:28:01.502Z",
       "status": "ok",
       "durationMs": 176,
-      "httpStatus": 200,
-      "buildNumber": "AiFoundry-2026-Feb-24-2026-03-03.2",
-      "manifestHash": "95937e76",
-      "isNewBuild": false
-    },
-    {
-      "checkedAt": "2026-03-04T13:44:45.396Z",
-      "status": "ok",
-      "durationMs": 171,
       "httpStatus": 200,
       "buildNumber": "AiFoundry-2026-Feb-24-2026-03-03.2",
       "manifestHash": "95937e76",
