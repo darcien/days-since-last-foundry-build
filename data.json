@@ -1,5 +1,5 @@
 {
-  "lastUpdatedAt": "2026-05-16T15:42:39.296Z",
+  "lastUpdatedAt": "2026-05-16T16:39:23.263Z",
   "builds": [
     {
       "firstSeenAt": "2026-05-16T10:49:03.393Z",
@@ -49,7 +49,7 @@
     },
     {
       "firstSeenAt": "2026-05-15T23:40:36.121Z",
-      "lastSeenAt": "2026-05-16T15:42:39.295Z",
+      "lastSeenAt": "2026-05-16T16:39:23.263Z",
       "buildNumber": "AiFoundry-2026-May-13-2026-05-15.1",
       "manifestHash": "f1b70912",
       "rawConfig": {
@@ -5478,6 +5478,15 @@
   ],
   "checks": [
     {
+      "checkedAt": "2026-05-16T16:39:23.263Z",
+      "status": "ok",
+      "durationMs": 191,
+      "httpStatus": 200,
+      "buildNumber": "AiFoundry-2026-May-13-2026-05-15.1",
+      "manifestHash": "f1b70912",
+      "isNewBuild": false
+    },
+    {
       "checkedAt": "2026-05-16T15:42:39.296Z",
       "status": "ok",
       "durationMs": 261,
@@ -6978,15 +6987,6 @@
       "httpStatus": 200,
       "buildNumber": "AiFoundry-2026-Apr-29-2026-04-29.1",
       "manifestHash": "af0495ec",
-      "isNewBuild": false
-    },
-    {
-      "checkedAt": "2026-05-03T09:08:40.370Z",
-      "status": "ok",
-      "durationMs": 206,
-      "httpStatus": 200,
-      "buildNumber": "AiFoundry-2026-Apr-30-2026-04-30.1",
-      "manifestHash": "8d619223",
       "isNewBuild": false
     }
   ]
